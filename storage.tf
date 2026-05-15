@@ -7,7 +7,7 @@ resource "azurerm_storage_account" "app" {
   account_kind             = "StorageV2" # default 值是 StorageV2，這裡明確指定以防未來變更預設
   min_tls_version          = "TLS1_2"
 
-  # 禁止 public blob 存取
+   # 允許 public blob 存取，供 QR 圖片以 blob 層級公開讀取
   allow_nested_items_to_be_public = true
 
   # 強制 HTTPS
