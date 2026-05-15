@@ -1,5 +1,68 @@
+variable "app_name" {
+  type        = string
+  description = "App Service Web App name (must be globally unique)"
+  default     = "app-qr-generator-dev"
+}
+
+# variable "app_service_sku" {
+#   type        = string
+#   description = "App Service Plan SKU"
+#   default     = "B1"
+# }
+
+variable "app_resource_group_name" {
+  type        = string
+  description = "Resource group name for App Service resources"
+}
+
+
+variable "container_port" {
+  type        = number
+  description = "Container listening port"
+  default     = 8000
+}
+
+variable "environment" {
+  type        = string
+  description = "Environment name (dev, prod)"
+}
+
+variable "ghcr_image" {
+  type        = object({
+    name    = string
+    version = string
+  })
+  description = "Docker image in GHCR (e.g., ghcr.io/username/image)"
+}
+
+variable "ghcr_username" {
+  type        = string
+  description = "GHCR username (required if image is private)"
+  default     = ""
+  sensitive   = true
+}
+
+variable "ghcr_token" {
+  type        = string
+  description = "GHCR PAT/token (required if image is private)"
+  default     = ""
+  sensitive   = true
+}
+
+variable "location" {
+  type        = string
+  description = "Azure region"
+  default     = "eastasia"
+}
+
+
+variable "project" {
+  type        = string
+  description = "Project name for tagging"
+  default     = "qr-code-generator"
+}
+
 variable "subscription_id" {
   type        = string
   description = "Azure Subscription ID"
-  default     = "b1fa58f6-9220-4ea8-8567-e7ab1158bfb0"
 }
