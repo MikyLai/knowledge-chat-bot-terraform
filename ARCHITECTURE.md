@@ -30,8 +30,6 @@
 
 ---
 
-## 缺少的關鍵資源
-
 ### 必要資源
 
 #### 1. Azure Container Registry (ACR)
