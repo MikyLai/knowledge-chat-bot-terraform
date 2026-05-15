@@ -41,7 +41,7 @@ resource "azurerm_linux_web_app" "app" {
     AZURE_STORAGE_CONNECTION_STRING = azurerm_storage_account.app.primary_connection_string
     BASE_URL = "https://${var.app_name}.azurewebsites.net"
     BLOB_PUBLIC_HOST= "${azurerm_storage_account.app.name}.blob.core.windows.net"
-    DATABASE_URL = "sqlite:////tmp/qr_code.db"
+    DATABASE_URL = sensitive("postgresql+psycopg://postgresadmin:${var.db_password}@${azurerm_postgresql_flexible_server.db.fqdn}:5432/${var.postgres_database_name}?sslmode=require")
     WEBSITES_ENABLE_APP_SERVICE_STORAGE = "false"
     WEBSITES_PORT                  = tostring(var.container_port)
   }
