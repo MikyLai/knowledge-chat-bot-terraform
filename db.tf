@@ -36,5 +36,5 @@ resource "azurerm_postgresql_flexible_server_firewall_rule" "allow_azure" {
 resource "azurerm_postgresql_flexible_server_configuration" "log_statement" {
   name      = "log_statement"
   server_id = azurerm_postgresql_flexible_server.db.id
-  value     = "all"
+  value     = "none"
 }
