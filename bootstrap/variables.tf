@@ -25,6 +25,15 @@ variable "github_environments" {
     name                      = string
     requires_review_for_release = optional(bool, true)
   }))
+  default = [
+  {
+    name = "dev"
+    requires_review_for_release = false
+  },
+  {
+    name = "prod"
+  }
+]
 
   validation {
     condition     = alltrue([for e in var.github_environments : e.name == lower(e.name)])

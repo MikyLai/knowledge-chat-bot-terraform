@@ -46,8 +46,8 @@ resource "azuread_application_federated_identity_credential" "github_actions" {
 
 # -----------------------------------------------------------------------------
 # Role Assignment
-# read  → Reader（只讀）
-# apply → Contributor（可以改資源）
+# read  → Reader
+# apply → Contributor
 # -----------------------------------------------------------------------------
 data "azurerm_resource_group" "app" {
   name = var.app_resource_group_name
@@ -61,7 +61,7 @@ resource "azurerm_role_assignment" "github_actions" {
 }
 
 # -----------------------------------------------------------------------------
-# 把 Azure secrets 存到每個 GitHub Environment
+# Create Azure variable in each GitHub Environment
 # -----------------------------------------------------------------------------
 locals {
   github_env_secrets = {
@@ -85,18 +85,4 @@ resource "github_actions_environment_variable" "azure" {
   depends_on = [github_repository_environment.envs]
 }
 
-output "github_actions_client_ids" {
-  description = "Client ID for each GitHub environment"
-  value       = { for k, v in azuread_application.github_actions : k => v.client_id }
-}
 
-output "github_environment_variables" {
-  description = "GitHub environment variables set for each environment"
-  value = {
-    for k, v in local.github_env_secrets : k => {
-      environment = v.env
-      name        = v.name
-      value       = v.value
-    }
-  }
-}
