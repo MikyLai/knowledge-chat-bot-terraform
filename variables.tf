@@ -1,7 +1,7 @@
 variable "app_name" {
   type        = string
   description = "App Service Web App name (must be globally unique)"
-  default     = "app-qr-generator-dev"
+  default     = "app-qr-generator"
 }
 
 # variable "app_service_sku" {
@@ -15,6 +15,11 @@ variable "app_resource_group_name" {
   description = "Resource group name for App Service resources"
 }
 
+variable "db_password" {
+    type        = string
+    description = "Password for PostgreSQL admin user"
+    sensitive   = true
+}
 
 variable "container_port" {
   type        = number
@@ -55,6 +60,11 @@ variable "location" {
   default     = "eastasia"
 }
 
+variable "postgres_database_name" {
+    type        = string
+    description = "Name of the PostgreSQL database"
+    default     = "qr_code_db"
+}
 
 variable "project" {
   type        = string
