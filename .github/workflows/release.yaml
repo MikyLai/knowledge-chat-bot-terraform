@@ -4,9 +4,15 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
     release-dev:
         uses: ./.github/workflows/resused-release.yaml
+        permissions:
+          actions: read
+          contents: read
+          id-token: write
+          issues: write
         with:
             environment: dev
