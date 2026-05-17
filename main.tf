@@ -15,10 +15,7 @@ terraform {
   # Run bootstrap/create-remote-state.sh once to provision this backend.
   # Then replace the placeholder values below with the actual output.
   backend "azurerm" {
-    resource_group_name  = "rg-tfstate-qr"
-    storage_account_name = "stqrtfstate038e436b"
-    container_name       = "tfstate"
-    key                  = "terraform.tfstate"
+    key       = "terraform.tfstate"
   }
 }
 

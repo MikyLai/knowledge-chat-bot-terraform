@@ -1,0 +1,12 @@
+name: Rlease
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+    release-dev:
+        uses: ./.github/workflows/resused-release.yaml
+        with:
+            environment: dev

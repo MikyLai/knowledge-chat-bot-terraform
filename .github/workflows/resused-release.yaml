@@ -1,0 +1,244 @@
+name: reused Terraform Release
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+        description: Name of the GitHub environment to deploy to. The GitHub environment should contain needed secrets & variables.
+      working-directory:
+        type: string
+        required: false
+        default: '.'
+        description: Directory containing Terraform files.
+
+concurrency:
+  group: terraform-release-${{ github.repository }}-${{ inputs.environment }}
+  cancel-in-progress: true
+
+permissions: read-all
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}-read
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      issues: write
+
+    outputs:
+      plan-has-changes: ${{ steps.plan.outputs.plan-has-changes }}
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: 'Az CLI login'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Expose secrets as Terraform variables
+        env:
+          SECRETS: ${{ toJSON(secrets) }}
+        run: |
+          echo "$SECRETS" | jq -r '
+            to_entries[]
+            | "TF_VAR_" + (.key | ascii_downcase) + "=" + (.value | tostring)
+          ' >> "$GITHUB_ENV"
+
+      - name: Terraform Init
+        working-directory: ${{ inputs.working-directory }}
+        run: terraform init -backend-config=backend/${{ inputs.environment }}.hcl
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          set +e
+
+          SUPPORTED_VAR_FILES=(
+            "${{ inputs.environment }}.tfvars"
+            "app.tfvars"
+          )
+
+          VAR_FILE_ARGS=()
+          for filename in "${SUPPORTED_VAR_FILES[@]}"; do
+            if [[ -f "${filename}" ]]; then
+              VAR_FILE_ARGS+=(
+                "-var-file"
+                "${filename}"
+              )
+            fi
+          done
+
+          PLAN_FILE=$(mktemp)
+
+          terraform plan \
+            -detailed-exitcode \
+            -input=false \
+            -no-color \
+            -parallelism=45 \
+            -lock-timeout=10m \
+            -out="${PLAN_FILE}" \
+            "${VAR_FILE_ARGS[@]}"
+
+          terraform_exit_code="${PIPESTATUS[0]}"
+          echo "Got terraform exit code: ${terraform_exit_code}"
+
+          {
+            cat <<'EOF'
+          ## Terraform Plan
+          <details><summary>Show Plan</summary>
+
+          EOF
+            terraform show -no-color "${PLAN_FILE}"
+
+            cat <<'EOF'
+          </details>
+          EOF
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+          if [[ "${terraform_exit_code}" -eq 0 ]]; then
+            echo "::info::No diff found, skipping apply."
+            echo "plan-has-changes=false" >> "$GITHUB_OUTPUT"
+          elif [[ "${terraform_exit_code}" -eq 2 ]]; then
+            echo "::info::Diff found, continuing to apply."
+            echo "plan-has-changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Failed to run terraform plan."
+            echo "plan-has-changes=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+
+  apply:
+    runs-on: ubuntu-latest
+    needs: plan
+    environment: ${{ inputs.environment }}-apply
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    if: ${{ success() && needs.plan.outputs.plan-has-changes == 'true' }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: 'Az CLI login'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Expose secrets as Terraform variables
+        env:
+          SECRETS: ${{ toJSON(secrets) }}
+        run: |
+          echo "$SECRETS" | jq -r '
+            to_entries[]
+            | "TF_VAR_" + (.key | ascii_downcase) + "=" + (.value | tostring)
+          ' >> "$GITHUB_ENV"
+
+      - name: Terraform Init
+        working-directory: ${{ inputs.working-directory }}
+        run: terraform init -backend-config=backend/${{ inputs.environment }}.hcl
+
+      - name: Terraform Apply
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          set -eu
+
+          SUPPORTED_VAR_FILES=(
+            "${{ inputs.environment }}.tfvars"
+            "app.tfvars"
+          )
+
+          VAR_FILE_ARGS=()
+          for filename in "${SUPPORTED_VAR_FILES[@]}"; do
+            if [[ -f "${filename}" ]]; then
+              VAR_FILE_ARGS+=(
+                "-var-file"
+                "${filename}"
+              )
+            fi
+          done
+
+          terraform apply \
+            -auto-approve \
+            -input=false \
+            -parallelism=45 \
+            -lock-timeout=10m \
+            "${VAR_FILE_ARGS[@]}"
+
+  tag:
+    runs-on: ubuntu-latest
+    needs:
+      - plan
+      - apply
+    if: ${{ always() && needs.apply.result != 'failure' && needs.apply.result != 'cancelled' && needs.plan.result == 'success' && github.event_name != 'schedule' }}
+    permissions:
+      contents: write
+    steps:
+      - name: get-date
+        id: get-date
+        run: |
+          echo "date=$(date --date='TZ="America/Chicago"' +%F)" >> "$GITHUB_OUTPUT"
+
+      - name: apply tags
+        uses: actions/github-script@v8
+        env:
+          DATE: ${{ steps.get-date.outputs.date }}
+          ENVIRONMENT: ${{ inputs.environment }}
+        with:
+          retries: 3
+          script: |
+            const current_tag = `current/${process.env.ENVIRONMENT}`;
+            const historical_tag = `release/${process.env.ENVIRONMENT}/${process.env.DATE}/${context.runNumber}`;
+
+            async function upsertTag(context, tag) {
+              let ref;
+              try {
+                ref = await github.rest.git.getRef({
+                  ...context.repo,
+                  ref: `tags/${tag}`,
+                });
+              } catch (e) {
+                if (e.status !== 404) {
+                  core.error(`Unexpected error checking for tag ${tag}: ${e}`);
+                  throw e;
+                }
+              }
+
+              if (!ref) {
+                await github.rest.git.createRef({
+                  ...context.repo,
+                  ref: `refs/tags/${tag}`,
+                  sha: context.sha,
+                });
+              } else {
+                await github.rest.git.updateRef({
+                  ...context.repo,
+                  ref: `tags/${tag}`,
+                  sha: context.sha,
+                  force: true,
+                });
+              }
+            }
+
+            core.info(`Creating tag for current release: ${current_tag}`);
+            await upsertTag(context, current_tag);
+
+            core.info(`Creating tag for historical release: ${historical_tag}`);
+            await upsertTag(context, historical_tag);
