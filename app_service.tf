@@ -47,4 +47,8 @@ resource "azurerm_linux_web_app" "app" {
   }
 
   tags = local.tags
+
+  lifecycle {
+    ignore_changes = [auth_settings, auth_settings_v2]
+  }
 }
