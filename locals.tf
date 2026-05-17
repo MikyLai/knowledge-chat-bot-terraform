@@ -1,4 +1,4 @@
-resource "random_string" "storage_suffix" {
+resource "random_string" "suffix" {
   length  = 6
   special = false
   upper   = false
@@ -10,6 +10,6 @@ locals {
     environment = var.environment
     managedby   = "terraform"
   }
-  resource_suffix = "${var.environment}-${random_string.storage_suffix.result}"
+  resource_suffix = "${var.environment}-${random_string.suffix.result}"
 }
 
