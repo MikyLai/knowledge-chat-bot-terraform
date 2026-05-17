@@ -17,7 +17,11 @@ concurrency:
   group: terraform-release-${{ github.repository }}-${{ inputs.environment }}
   cancel-in-progress: true
 
-permissions: read-all
+permissions:
+  actions: read
+  contents: write
+  id-token: write
+  issues: write
 
 jobs:
   plan:
