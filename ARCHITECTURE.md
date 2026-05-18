@@ -258,6 +258,25 @@ terraform/
 
 ---
 
+## Resource Group 設計決策
+
+本專案使用**兩個獨立的 Resource Group**：
+
+| Resource Group | 用途 |
+|----------------|------|
+| `rg-qr-generator-{env}` | App Service、PostgreSQL、Blob Storage 等應用資源 |
+| `rg-tfstate-qr` | Terraform remote state 的 Storage Account |
+
+### 為什麼分開？
+
+**安全隔離**：tfstate 是整個 infra 的命脈，記錄所有資源的當前狀態。若與應用資源放在同一個 RG，誤刪 RG（`az group delete`）會連 tfstate 一起刪掉，導致 Terraform 失去對所有資源的追蹤，難以復原。
+
+**跨環境共用**：`rg-tfstate-qr` 同時服務 dev、prod 等多個環境（各自用不同的 blob key），不應該屬於任何單一環境的 RG。
+
+**權限最小化**：GitHub Actions SP 對 `rg-qr-generator-dev` 有 `Reader`/`Contributor`，對 `rg-tfstate-qr` 只有 `Reader` + `Storage Blob Data Contributor`，做到最小權限原則。
+
+---
+
 ## 待辦事項
 
 ### Phase 1 — 基礎網路
