@@ -58,7 +58,6 @@ jobs:
         env:
           SECRETS: ${{ toJSON(secrets) }}
         run: |
-          echo $SECRETS
           echo "$SECRETS" | jq -r '
             to_entries[]
             | "TF_VAR_" + (.key | ascii_downcase) + "=" + (.value | tostring)
