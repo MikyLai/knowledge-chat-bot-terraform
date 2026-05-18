@@ -11,8 +11,8 @@ jobs:
         uses: ./.github/workflows/resused-release.yaml
         permissions:
           actions: read
-          contents: read
+          contents: write
           id-token: write
-          issues: write
         with:
             environment: dev
+        secrets: inherit

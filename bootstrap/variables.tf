@@ -9,6 +9,18 @@ variable "tenant_id" {
   default     = "e611142c-7e66-410f-9240-bdbfbab3a8d0"
 }
 
+variable "tfstate_resource_group_name" {
+  type        = string
+  description = "Resource group name for Terraform state storage"
+  default     = "rg-tfstate-qr"
+}
+
+variable "tfstate_storage_account_name" {
+  type        = string
+  description = "Storage account name for Terraform state"
+  default     = "stqrtfstate038e436b"
+}
+
 variable "environment" {
   type        = string
   description = "Environment name (dev, prod)"

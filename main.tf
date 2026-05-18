@@ -15,7 +15,6 @@ terraform {
   # Run bootstrap/create-remote-state.sh once to provision this backend.
   # Then replace the placeholder values below with the actual output.
   backend "azurerm" {
-    key       = "terraform.tfstate"
   }
 }
 
