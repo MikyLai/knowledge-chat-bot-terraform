@@ -33,7 +33,6 @@ jobs:
       actions: read
       contents: read
       id-token: write
-      issues: write
 
     outputs:
       plan-has-changes: ${{ steps.plan.outputs.plan-has-changes }}
