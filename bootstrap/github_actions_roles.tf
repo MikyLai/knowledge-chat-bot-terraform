@@ -60,6 +60,57 @@ resource "azurerm_role_assignment" "github_actions" {
   principal_id         = azuread_service_principal.github_actions[each.key].object_id
 }
 
+# tfstate storage: data plane 權限讓 SP 能讀寫 tfstate blob（ARM_USE_AZUREAD 模式下不需要 listKeys）
+data "azurerm_resource_group" "tfstate" {
+  name = var.tfstate_resource_group_name
+}
+
+data "azurerm_storage_account" "tfstate" {
+  name                = var.tfstate_storage_account_name
+  resource_group_name = var.tfstate_resource_group_name
+}
+
+# management plane: 讓 SP 能 read tfstate RG（terraform refresh state 時需要）
+resource "azurerm_role_assignment" "github_actions_tfstate_rg" {
+  for_each             = local.github_env_roles
+  scope                = data.azurerm_resource_group.tfstate.id
+  role_definition_name = "Reader"
+  principal_id         = azuread_service_principal.github_actions[each.key].object_id
+}
+
+resource "azurerm_role_assignment" "github_actions_tfstate" {
+  for_each             = local.github_env_roles
+  scope                = data.azurerm_storage_account.tfstate.id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = azuread_service_principal.github_actions[each.key].object_id
+}
+
+# read role 缺少 Microsoft.Web/sites/config/list/action，terraform plan 會 403
+# 用自訂 role 補上這個 action 給所有 SP（read + apply 都需要 refresh state）
+resource "azurerm_role_definition" "web_config_reader" {
+  name        = "WebConfigReader-${var.app_resource_group_name}"
+  scope       = data.azurerm_resource_group.app.id
+  description = "Allow reading App Service config/list actions for Terraform plan"
+
+  permissions {
+    actions = [
+      "Microsoft.Web/sites/config/list/action",
+    ]
+  }
+
+  assignable_scopes = [data.azurerm_resource_group.app.id]
+}
+
+resource "azurerm_role_assignment" "github_actions_web_config" {
+  for_each           = { for k, v in local.github_env_roles : k => v if v.role == "read" }
+  scope              = data.azurerm_resource_group.app.id
+  role_definition_id = azurerm_role_definition.web_config_reader.role_definition_resource_id
+  principal_id       = azuread_service_principal.github_actions[each.key].object_id
+}
+
+output github_env_roles {
+  value = local.github_env_roles
+}
 # -----------------------------------------------------------------------------
 # Create Azure variable in each GitHub Environment
 # -----------------------------------------------------------------------------
