@@ -28,8 +28,8 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}-read
     env:
-      ARM_USE_AZUREAD: true
-      ARM_STORAGE_USE_AZUREAD: true
+      ARM_USE_AZUREAD: true         # backend: use Azure AD token instead of listKeys for tfstate
+      ARM_STORAGE_USE_AZUREAD: true  # provider: use Azure AD token instead of listKeys for storage resources
     permissions:
       actions: read
       contents: read
@@ -45,6 +45,8 @@ jobs:
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
 
       - name: 'Az CLI login'
         uses: azure/login@v2
