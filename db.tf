@@ -40,7 +40,8 @@ resource "azurerm_postgresql_flexible_server_configuration" "log_statement" {
 
 ##-----------------------------------------------------------------------------
 ## Private DNS Zone for PostgreSQL Flexible Server (VNet injection)
-## Zone name must match the server name for Azure to resolve the FQDN privately
+## For VNet-injected PostgreSQL Flexible Server, the private DNS zone is:
+## <server-name>.private.postgres.database.azure.com
 ##-----------------------------------------------------------------------------
 resource "azurerm_private_dns_zone" "db" {
   name                = "${var.app_name}-${var.environment}.private.postgres.database.azure.com"
