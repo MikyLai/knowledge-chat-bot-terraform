@@ -36,7 +36,7 @@ module "network" {
   app_service_subnet_cidr  = "10.0.1.0/24"
   db_subnet_cidr           = "10.0.2.0/24"
   address_spaces          = ["10.0.0.0/16"]
-  app_name                = var.app_name-${var.environment}
+  app_name                = "${var.app_name}-${var.environment}"
   enable_network_watcher  = true
   environment             = var.environment
   location                = var.location

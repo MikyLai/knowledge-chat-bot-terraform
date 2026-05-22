@@ -21,11 +21,6 @@ variable "tfstate_storage_account_name" {
   default     = "stqrtfstate038e436b"
 }
 
-variable "environment" {
-  type        = string
-  description = "Environment name (dev, prod)"
-}
-
 variable "github_repository_name" {
   type        = string
   description = "Repository name for the App Service Web App (must be globally unique)"
@@ -56,18 +51,6 @@ variable "github_environments" {
 GitHub environment names. Must be lowercase and unique per repository.
 requires_review_for_release defaults to true except for dev / non-prod environments.
 EOF
-}
-
-variable "location" {
-  type        = string
-  description = "Azure region"
-  default     = "eastasia"
-}
-
-variable "project" {
-  type        = string
-  description = "Project name for tagging"
-  default     = "qr-code-generator"
 }
 
 variable "subscription_id" {
