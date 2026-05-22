@@ -98,7 +98,3 @@ variable "db_subnet_cidr" {
   description = "CIDR for PostgreSQL Flexible Server subnet (e.g. 10.0.2.0/24). Must be at least /28."
 }
 
-variable "app_service_id" {
-  type        = string
-  description = "Resource ID of the App Service (azurerm_linux_web_app) to integrate with VNet."
-}

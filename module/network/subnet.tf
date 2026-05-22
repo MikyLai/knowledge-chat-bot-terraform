@@ -18,16 +18,6 @@ resource "azurerm_subnet" "app_service" {
 }
 
 ##-----------------------------------------------------------------------------
-## VNet Integration: App Service → app_service subnet
-## Routes App Service outbound traffic through the VNet,
-## enabling it to reach private resources like DB in the same VNet
-##-----------------------------------------------------------------------------
-resource "azurerm_app_service_virtual_network_swift_connection" "app" {
-  app_service_id = var.app_service_id
-  subnet_id      = azurerm_subnet.app_service.id
-}
-
-##-----------------------------------------------------------------------------
 ## Subnet: PostgreSQL Flexible Server (private, no public access)
 ## Delegates to Microsoft.DBforPostgreSQL/flexibleServers
 ##-----------------------------------------------------------------------------
