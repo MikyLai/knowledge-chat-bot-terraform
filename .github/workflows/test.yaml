@@ -1,0 +1,19 @@
+name: Test
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+    test-dev:
+        uses: ./.github/workflows/reused-test.yaml
+        permissions:
+          contents: read
+          id-token: write
+          issues: write
+          pull-requests: write
+        with:
+            environment: dev
+        secrets: inherit

@@ -1,0 +1,387 @@
+name: Reusable Test
+
+on:
+  workflow_call:
+    inputs:
+      targets:
+        type: string
+        default: "[]"
+        description: "YAML dictionary of [{environment: app-test, fail-on-plan-errors: true, working-directory: app}, ...]"
+
+concurrency:
+  group: test-terraform-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: false # setting to true will lock the state if any changes are committed before the results are complete.
+
+permissions: read-all
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+
+    outputs:
+      matrix: ${{ steps.target.outputs.matrix }}
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: 'Az CLI login'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: actions/cache@v4
+        name: Cache TFLint plugin dir
+        with:
+          path: ~/.tflint.d/plugins
+          key: test-terraform-${{ runner.os }}-tflint-${{ hashFiles('.tflint.hcl') }}
+
+      - uses: terraform-linters/setup-tflint@v4
+        name: Setup TFLint
+        with:
+          tflint_version: v0.52.0
+
+      - name: Init TFLint
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: tflint --init
+
+      - name: Run TFLint
+        run: tflint -f compact --recursive
+
+      - name: transform targets
+        id: target
+        run: |
+          set -eu
+
+          cd "$(mktemp -d)"
+          cat <<'EOF' > input.yaml
+          ${{ inputs.targets }}
+          EOF
+
+          echo Input YAML:
+          cat input.yaml
+
+          # Convert to json so we can use jq to perform the transformation.
+          yq -o=json input.yaml > input.json
+
+          echo
+          echo Input JSON:
+          cat input.json
+
+          # this is to be compatible with the "workingDirectory" and "working-directory".
+          jq '.[] |= with_entries(if .key == "workingDirectory" then .key = "working-directory" else . end)' input.json > input-modified.json
+          jq '.[] |= with_entries(if .key == "failOnPlanErrors" then .key = "fail-on-plan-errors" else . end)' input-modified.json > output.json
+
+          jq -cr 'map(if has("fail-on-plan-errors") then . else . + {"fail-on-plan-errors": true} end) | {target: .}' < output.json > matrix.json
+
+          echo
+          echo Matrix JSON:
+          cat matrix.json
+
+          echo "matrix=$(cat matrix.json)" >> "$GITHUB_OUTPUT"
+
+          echo
+          echo GitHub Outputs:
+          cat "$GITHUB_OUTPUT"
+
+  test:
+    runs-on: ubuntu-latest
+    needs:
+      - setup
+    if: ${{ success() && inputs.targets != '[]' }}
+    environment: ${{ matrix.target.environment }}-read
+    env:
+      ARM_USE_AZUREAD: true         # backend: use Azure AD token instead of listKeys for tfstate
+      ARM_STORAGE_USE_AZUREAD: true  # provider: use Azure AD token instead of listKeys for storage resources
+      VARIABLES_DIRECTORY: ${{ format('envs/{0}', matrix.target.environment) }}
+    permissions:
+      contents: read
+      id-token: write # Needed for OIDC authentication with Azure (azure/login)
+      issues: write
+      pull-requests: write
+
+    concurrency:
+      group: terraform-pr-plan-${{ github.repository }}-${{ matrix.target.environment }}      
+
+    strategy:
+      fail-fast: true
+      matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: 'Az CLI login'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Expose secrets as Terraform variables
+        env:
+          SECRETS: ${{ toJSON(secrets) }}
+        run: |
+          echo "$SECRETS" | jq -r '
+            to_entries[]
+            | "TF_VAR_" + (.key | ascii_downcase) + "=" + (.value | tostring)
+          ' >> "$GITHUB_ENV"
+       
+      - name: Terraform Init
+        id: init
+        run: |
+          set -eu
+
+          {
+            cat <<'EOF'
+          ## Terraform Output
+
+          <details><summary><b>Init Output</b></summary>
+
+          EOF
+          } >> "$GITHUB_STEP_SUMMARY"
+
+                     
+          terraform init \
+            -backend-config=backend/${{ matrix.target.environment }}.hcl \
+            -no-color \
+            2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+
+          {
+            cat <<'EOF'
+
+          </details>
+          EOF
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check formatting
+        id: fmt
+        run: |
+          set -eu
+
+          {
+            cat <<'EOF'
+          <details><summary><b>Format Output</b></summary>
+
+          EOF
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          terraform fmt \
+            -no-color \
+            -check \
+            -recursive \
+            2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+
+          {
+            cat <<'EOF'
+
+          </details>
+          EOF
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Validate Terraform
+        id: validate
+        run: |
+          set -u
+          set +e
+
+          VALIDATE_ERROR_FILE=$(mktemp)
+          terraform validate -no-color > "$VALIDATE_ERROR_FILE" 2>&1
+
+          cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          <details><summary><b>Validate Output</b></summary>
+          EOF
+
+          cat "$VALIDATE_ERROR_FILE" >> "$GITHUB_STEP_SUMMARY"
+
+          cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          </details>
+          EOF
+
+          valid=$(terraform validate -json | jq -r '.valid')
+          if [[ "${valid}" == "true" ]]; then
+            output_message=$(grep Success! "$VALIDATE_ERROR_FILE" | tail -n 1)
+          else
+            output_message=$(terraform validate -json | jq -r '.diagnostics[] | "\(.severity): \(.summary)"')
+          fi
+
+          {
+            echo "is_valid=${valid}"
+            echo "validation_txt<<EOF"
+            echo "${output_message}"
+            echo "EOF"
+            echo "validate-error-file=${VALIDATE_ERROR_FILE}"
+          } >> "$GITHUB_OUTPUT"
+
+          if [[ "${valid}" == "false" ]]; then
+            exit 1
+          fi
+    
+      - name: Terraform Plan
+        id: plan
+        env:
+          FAIL_ON_PLAN_ERROR: ${{ matrix.target.fail-on-plan-errors }}
+        run: |
+          set -u
+          set +e
+
+          SUPPORTED_VAR_FILES=(
+            "${{ matrix.target.environment }}.tfvars"
+            "app.tfvars"
+          )
+
+
+          VAR_FILE_ARGS=()
+          for filename in "${SUPPORTED_VAR_FILES[@]}"; do
+            if [[ -f "${filename}" ]]; then
+              VAR_FILE_ARGS+=(
+                "-var-file"
+                "${filename}"
+              )
+            fi
+          done
+
+          PLAN_FILE=$(mktemp)
+          PLAN_TEXT_FILE=$(mktemp)
+          PLAN_ERROR_FILE=$(mktemp)
+
+          {
+            echo "plan-file=${PLAN_FILE}"
+            echo "plan-text-file=${PLAN_TEXT_FILE}"
+            echo "plan-error-file=${PLAN_ERROR_FILE}"
+          } >> "$GITHUB_OUTPUT"
+
+          terraform plan \
+            -detailed-exitcode \
+            -input=false \
+            -no-color \
+            -parallelism=20 \
+            -lock-timeout=10m \
+            -out "${PLAN_FILE}" \
+            "${VAR_FILE_ARGS[@]}" \
+            2> "${PLAN_ERROR_FILE}"
+
+          terraform_exit_code="${PIPESTATUS[0]}"
+          echo "exit_code=${terraform_exit_code}" >> "$GITHUB_OUTPUT"
+          cat "${PLAN_ERROR_FILE}"
+
+          # This text output is for use in downstream steps.
+          terraform show -no-color "${PLAN_FILE}" > "${PLAN_TEXT_FILE}"
+
+          # This text output will show up in the Workflow Summary
+          cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          <details><summary>Plan Output</summary>
+
+          EOF
+
+          terraform show -no-color "${PLAN_FILE}"
+          cat "${PLAN_ERROR_FILE}"
+
+          cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          </details>
+          EOF
+
+          if [[ "${FAIL_ON_PLAN_ERROR}" == "true" ]] && [[ "${terraform_exit_code}" -ne 2 ]]; then
+            exit "${terraform_exit_code}"
+          fi
+
+      - name: Create or update summary comment to PR
+        if: ${{ github.event_name == 'pull_request' && always() }}
+        uses: actions/github-script@v8
+        env:
+          PLAN_TEXT_FILE: ${{ steps.plan.outputs.plan-text-file }}
+          PLAN_ERROR_FILE: ${{ steps.plan.outputs.plan-error-file }}
+          VALIDATION_TEXT: ${{ steps.validate.outputs.validation_txt }}
+          IS_VALID: ${{ steps.validate.outputs.is_valid }}
+          VALIDATION_ERROR_FILE: ${{ steps.validate.outputs.validate-error-file }}
+          TERRAFORM_EXIT_CODE: ${{ steps.plan.outputs.exit_code }}
+        with:
+          script: |
+            const fs = require('fs').promises;
+
+            let fileContent;
+            if (process.env.IS_VALID === "false") {
+              fileContent = await fs.readFile(process.env.VALIDATION_ERROR_FILE, 'utf8');
+            } else {
+              fileContent = await fs.readFile(
+                (process.env.TERRAFORM_EXIT_CODE == 0 || process.env.TERRAFORM_EXIT_CODE == 2) ? process.env.PLAN_TEXT_FILE : process.env.PLAN_ERROR_FILE,
+                'utf8'
+              );
+            }
+
+            const planText = fileContent.substring(0, 60000);
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+
+            const commentHeader = `# Terraform Checks (${ { } })`;
+            const header = `# Terraform Checks (${process.env.GITHUB_REF || ''})`;
+
+            await Promise.all(comments.map(async (comment) => {
+              if (comment.user.type === "Bot" && comment.body.includes("Terraform Checks")) {
+                await github.rest.issues.deleteComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: comment.id
+                });
+              }
+            }));
+
+            const commentBody = `
+            # Terraform Checks (${process.env.GITHUB_REF || ''})
+
+            ## Terraform Format and Style: \`${{ steps.fmt.outcome }}\`
+            ## Terraform Initialization: \`${{ steps.init.outcome }}\`
+            ## Terraform Validation: \`${process.env.VALIDATION_TEXT}\`
+            ## Terraform Plan: \`${{ steps.plan.outcome }}\`
+
+            <details><summary>Show Plan</summary>
+
+            \`\`\`
+            ${planText}
+            \`\`\`
+
+            </details>
+            `;
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: commentBody
+            });
+
+  check:
+    runs-on: ubuntu-latest
+    permissions: {}
+    needs:
+      - setup
+      - test
+    if: always()
+    steps:
+      - name: Success
+        if: ${{ !(contains(needs.*.result, 'failure') || contains(needs.test.result, 'skipped')) }}
+        run: exit 0
+      - name: Failure
+        if: ${{ contains(needs.*.result, 'failure') }}
+        run: exit 1
