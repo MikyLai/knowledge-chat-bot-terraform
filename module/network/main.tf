@@ -60,7 +60,7 @@ resource "azurerm_virtual_network" "vnet" {
 ## Azure automatically enables Network Watcher, but this allows specifying a custom name.
 ##-----------------------------------------------------------------------------
 resource "azurerm_network_watcher" "flow_log_nw" {
-  count               = var.enable && var.enable_network_watcher ? 1 : 0
+  count               = var.enable_network_watcher ? 1 : 0
   name                = format("nw-%s", var.resource_position_prefix) 
   location            = var.location
   resource_group_name = var.resource_group_name
