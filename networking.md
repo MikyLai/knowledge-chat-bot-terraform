@@ -69,12 +69,15 @@ Private App Service
 
 你現在最值得學的是
 Azure networking 跟 AWS 最大不同：
-AWS	Azure
-Security Group	NSG
-Route Table	Route Table
-RDS subnet group	Delegated subnet
-PrivateLink	Private Endpoint
-IAM	Entra ID + RBAC
+
+| AWS | Azure |
+|---|---|
+| Security Group | NSG |
+| Route Table | Route Table |
+| RDS subnet group | Delegated subnet |
+| PrivateLink | Private Endpoint |
+| IAM | Entra ID + RBAC |
+
 如果是 SRE / Platform interview
 
 做到：
@@ -106,9 +109,32 @@ Storage secrets
 移出去。
 
 6
-Managed Identity
+Managed Identity + Storage IAM
 
-完全不用 secret。
+讓 App Service 用 Managed Identity 存取 Storage，完全不用 connection string / secret。
+
+步驟：
+1. 啟用 App Service system-assigned identity
+   ```hcl
+   identity {
+     type = "SystemAssigned"
+   }
+   ```
+2. 指派 Storage Blob Data Contributor role
+   ```hcl
+   resource "azurerm_role_assignment" "app_storage" {
+     scope                = azurerm_storage_account.app.id
+     role_definition_name = "Storage Blob Data Contributor"
+     principal_id         = azurerm_linux_web_app.app.identity[0].principal_id
+   }
+   ```
+3. App Service 改用 DefaultAzureCredential（不再需要 AZURE_STORAGE_CONNECTION_STRING）
+4. 移除 app_settings 裡的 AZURE_STORAGE_CONNECTION_STRING
+
+優點：
+- 不用管 secret rotation
+- 符合 zero-secret 原則
+- Azure 推薦的 production 做法
 
 這些就是：
 真正 Azure production architecture
