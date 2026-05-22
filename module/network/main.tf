@@ -13,7 +13,7 @@ terraform {
 
 resource "azurerm_virtual_network" "vnet" {
   
-  name                    = format("vnet-%s", var.resource_position_prefix)
+  name                    = "vnet-${var.app_name}-${var.environment}"
   resource_group_name     = var.resource_group_name
   address_space           = var.address_spaces
   flow_timeout_in_minutes = var.flow_timeout_in_minutes
@@ -23,36 +23,7 @@ resource "azurerm_virtual_network" "vnet" {
   edge_zone               = var.edge_zone
   tags                    = var.tags
 
-  # dynamic "encryption" {
-  #   for_each = var.enable_encryption_settings != null ? [1] : []
-  #   content {
-  #     enforcement = var.enable_encryption_settings
-  #   }
-  # }
-
-  # dynamic "ddos_protection_plan" {
-  #   for_each = local.ddos_pp_id != null ? [1] : []
-  #   content {
-  #     id     = local.ddos_pp_id
-  #     enable = true
-  #   }
-  # }
 }
-
-##-----------------------------------------------------------------------------
-## DDoS Plan – Creates a new plan if one is not provided
-##-----------------------------------------------------------------------------
-# resource "azurerm_network_ddos_protection_plan" "ddos_protection_plan" {
-#   count               = local.create_ddos_plan ? 1 : 0 # Updated: Only create new DDOS Plan if existing one not provided
-#   name                = var.resource_position_prefix ? format("ddospp-%s", local.name) : format("%s-ddospp", local.name)
-#   location            = var.location
-#   resource_group_name = var.resource_group_name
-#   tags                = module.labels.tags
-
-#   lifecycle {
-#     prevent_destroy = false
-#   }
-# }
 
 ##-----------------------------------------------------------------------------
 ## Network Watcher – Enables Azure Network Watcher in the specified region if required.
@@ -61,7 +32,7 @@ resource "azurerm_virtual_network" "vnet" {
 ##-----------------------------------------------------------------------------
 resource "azurerm_network_watcher" "flow_log_nw" {
   count               = var.enable_network_watcher ? 1 : 0
-  name                = format("nw-%s", var.resource_position_prefix) 
+  name                = "nw-${var.app_name}-${var.environment}"
   location            = var.location
   resource_group_name = var.resource_group_name
   tags                = var.tags

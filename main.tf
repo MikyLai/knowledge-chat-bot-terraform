@@ -40,7 +40,7 @@ module "network" {
   environment             = var.environment
   location                = var.location
   resource_group_name     = azurerm_resource_group.app.name
-  resource_position_prefix = var.environment
+  name                    = ${var.app_name}-${var.environment}
   tags                    = local.tags
 }
 
