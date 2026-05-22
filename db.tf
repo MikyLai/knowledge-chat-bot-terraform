@@ -12,9 +12,16 @@ resource "azurerm_postgresql_flexible_server" "db" {
   storage_mb             = 32768
   version                = "16"
 
+  # VNet injection – private access only, no public endpoint
+  delegated_subnet_id           = module.network.db_subnet_id
+  private_dns_zone_id           = azurerm_private_dns_zone.db.id
+  public_network_access_enabled = false
+
   lifecycle {
     ignore_changes = [zone]
   }
+
+  depends_on = [azurerm_private_dns_zone_virtual_network_link.db]
 }
 # create database
 resource "azurerm_postgresql_flexible_server_database" "qr_code_db" {
@@ -24,17 +31,30 @@ resource "azurerm_postgresql_flexible_server_database" "qr_code_db" {
   server_id = azurerm_postgresql_flexible_server.db.id
 }
 
-# allow Azure services to access the server (for App Service VNet Integration)
-resource "azurerm_postgresql_flexible_server_firewall_rule" "allow_azure" {
-  name             = "allow-azure"
-  server_id        = azurerm_postgresql_flexible_server.db.id
-
-  start_ip_address = "0.0.0.0"
-  end_ip_address   = "0.0.0.0"
-}
 
 resource "azurerm_postgresql_flexible_server_configuration" "log_statement" {
   name      = "log_statement"
   server_id = azurerm_postgresql_flexible_server.db.id
   value     = "none"
+}
+
+##-----------------------------------------------------------------------------
+## Private DNS Zone for PostgreSQL Flexible Server (VNet injection)
+## For VNet-injected PostgreSQL Flexible Server, the private DNS zone is:
+## <server-name>.private.postgres.database.azure.com
+##-----------------------------------------------------------------------------
+resource "azurerm_private_dns_zone" "db" {
+  name                = "${var.app_name}-${var.environment}.private.postgres.database.azure.com"
+  resource_group_name = azurerm_resource_group.app.name
+
+  tags = local.tags
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "db" {
+  name                  = "dns-link-db-${var.environment}"
+  resource_group_name   = azurerm_resource_group.app.name
+  private_dns_zone_name = azurerm_private_dns_zone.db.name
+  virtual_network_id    = module.network.vnet_id
+
+  tags = local.tags
 }

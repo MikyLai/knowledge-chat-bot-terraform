@@ -40,20 +40,6 @@ variable "ghcr_image" {
   description = "Docker image in GHCR (e.g., ghcr.io/username/image)"
 }
 
-variable "ghcr_username" {
-  type        = string
-  description = "GHCR username (required if image is private)"
-  default     = ""
-  sensitive   = true
-}
-
-variable "ghcr_token" {
-  type        = string
-  description = "GHCR PAT/token (required if image is private)"
-  default     = ""
-  sensitive   = true
-}
-
 variable "location" {
   type        = string
   description = "Azure region"
