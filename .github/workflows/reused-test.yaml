@@ -32,13 +32,6 @@ jobs:
         with:
           terraform_wrapper: false
 
-      - name: 'Az CLI login'
-        uses: azure/login@v2
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-
       - uses: actions/cache@v4
         name: Cache TFLint plugin dir
         with:
