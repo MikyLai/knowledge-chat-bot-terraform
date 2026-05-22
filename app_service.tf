@@ -47,7 +47,7 @@ resource "azurerm_linux_web_app" "app" {
     #     → CNAME → <uid>.app-qr-generator-dev.private.postgres.database.azure.com
     #     → Private DNS Zone A record → 10.0.2.x (private IP, never leaves VNet)
     # Direct use of the .private. hostname does NOT work (no A record at that exact name).
-    DATABASE_URL = sensitive("postgresql+psycopg://postgresadmin:${urlencode(var.DB_PASSWORD)}@${azurerm_postgresql_flexible_server.db.fqdn}:5432/${var.postgres_database_name}?sslmode=require")
+    DATABASE_URL = sensitive("postgresql+psycopg://postgresadmin:${urlencode(var.db_password )}@${azurerm_postgresql_flexible_server.db.fqdn}:5432/${var.postgres_database_name}?sslmode=require")
     WEBSITES_ENABLE_APP_SERVICE_STORAGE = "false"
     WEBSITES_PORT                  = tostring(var.container_port)
   }

@@ -15,7 +15,7 @@ variable "app_resource_group_name" {
   description = "Resource group name for App Service resources"
 }
 
-variable "DB_PASSWORD" {
+variable "db_password" {
     type        = string
     description = "Password for PostgreSQL admin user"
     sensitive   = true
