@@ -12,8 +12,6 @@ concurrency:
   group: test-terraform-${{ github.repository }}-${{ github.ref }}
   cancel-in-progress: false # setting to true will lock the state if any changes are committed before the results are complete.
 
-permissions: read-all
-
 jobs:
   setup:
     runs-on: ubuntu-latest

@@ -15,5 +15,7 @@ jobs:
           issues: write
           pull-requests: write
         with:
-            targets: dev
+            targets: |
+              - environment: dev
+                working-directory: .
         secrets: inherit
