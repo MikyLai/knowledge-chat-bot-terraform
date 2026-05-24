@@ -254,40 +254,12 @@ App Service (Docker container: FastAPI + uvicorn)
 
 ---
 
+
 ## TODO
 
-### Phase 1 — 基礎網路 ✅
-- [x] `module/network` — VNet、Subnet × 2（appservice / db）
-
-### Phase 2 — 身份與秘密管理
-- [ ] User-assigned Managed Identity
-- [ ] Key Vault、access policy × 2（MI + deployer）、secrets × 2
-
-### Phase 3 — 儲存與資料庫 ✅
-- [x] `storage.tf` — Storage Account、Container `qr-codes`（private，無 Private Endpoint）
-- [x] `db.tf` — PostgreSQL Flexible Server、DB、VNet Injection
-- [x] 應用程式 `database.py` — 已支援 PostgreSQL（`DATABASE_URL` 環境變數）
-
-### Phase 4 — App Service ✅
-- [x] `app_service.tf` — App Service Plan（Linux B1）、Web App（GHCR image）、VNet Integration
-- [ ] 改用 User-assigned MI 掛載
-- [ ] Key Vault references 注入 secrets
-- [ ] `azurerm_role_assignment` — MI → Storage `Storage Blob Data Contributor`
-
-### Phase 5 — 流量入口
-- [ ] Application Gateway — Public IP（static）、HTTP→HTTPS redirect、SSL 憑證
-
-### Phase 6 — 監控
-- [ ] Log Analytics Workspace、Application Insights
-
-### 其他 ✅
-- [x] CI/CD pipeline — test → release 
-
-# TODO
-
-## Infrastructure
+### Infrastructure
 
 - [ ] Add Azure Cache for Redis (`azurerm_redis_cache`) + connect to App Service via app settings
 - [ ] Move `db_password` to Azure Key Vault (`azurerm_key_vault_secret`) and have App Service read via Key Vault reference
 - [ ] Replace Storage Account SAS URL with IAM-based access (Managed Identity + Storage Blob Data Reader role assignment)
-- [ ] load test
+- [ ] load test , test rate limit
