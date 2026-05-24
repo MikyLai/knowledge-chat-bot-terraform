@@ -122,7 +122,7 @@ App Service (Docker container: FastAPI + uvicorn)
 
 ## Terraform 資源清單（依 Phase）
 
-### Phase 1 — 基礎網路
+### Phase 1 — 基礎網路 ✅
 
 | Terraform 資源 | 說明 |
 |----------------|------|
@@ -147,13 +147,12 @@ App Service (Docker container: FastAPI + uvicorn)
 
 ---
 
-### Phase 3 — 儲存與資料庫
+### Phase 3 — 儲存與資料庫 ✅
 
 | Terraform 資源 | 說明 |
 |----------------|------|
 | `azurerm_storage_account` | Blob Storage 主體（直接在 root module，無獨立 module） |
 | `azurerm_storage_container` | 名稱 `qr-codes`，`container_access_type = "private"` |
-| `azurerm_role_assignment` | MI → Storage `Storage Blob Data Contributor` 角色 |
 | `azurerm_postgresql_flexible_server` | PostgreSQL Flexible Server |
 | `azurerm_postgresql_flexible_server_database` | 應用資料庫 |
 
@@ -161,27 +160,31 @@ App Service (Docker container: FastAPI + uvicorn)
 
 ### Phase 4 — App Service
 
-| Terraform 資源 | 說明 |
-|----------------|------|
-| `azurerm_service_plan` | Linux，B1 以上 |
-| `azurerm_linux_web_app` | container mode，直接從 GHCR pull image，掛載 User-assigned MI |
-| `azurerm_app_service_virtual_network_swift_connection` | App Service → `snet-appservice` VNet Integration |
-| App settings（Key Vault references） | `@Microsoft.KeyVault(SecretUri=...)` 格式注入 secrets |
+| Terraform 資源 | 說明 | 狀態 |
+|----------------|------|------|
+| `azurerm_service_plan` | Linux，B1 以上 | ✅ |
+| `azurerm_linux_web_app` | container mode，直接從 GHCR pull image | ✅ |
+| `azurerm_app_service_virtual_network_swift_connection` | App Service → `snet-appservice` VNet Integration | ✅ |
+| `azurerm_role_assignment` | MI → Storage `Storage Blob Data Contributor` | ⏳ Phase 2 後 |
+| App settings（Key Vault references） | `DATABASE_URL`、`AZURE_STORAGE_ACCOUNT_NAME` 透過 KV 注入 | ⏳ Phase 2 後 |
 
 ---
 
-### Phase 5 — 流量入口
+### Phase 5 — 流量入口（Production only）
+
+> **備註**：App Service 已內建 HTTPS 與公開 URL，目前環境不需要 Application Gateway。
+> Production 若需要 WAF、多後端路由、或完全隱藏 App Service 原始 URL 再考慮加入。
 
 | Terraform 資源 | 說明 |
 |----------------|------|
 | `azurerm_public_ip` | static，供 Application Gateway 使用 |
-| `azurerm_application_gateway` | Frontend → public IP；Backend pool → App Service |
+| `azurerm_application_gateway` | Frontend → public IP；Backend pool → App Service；WAF v2 SKU |
 | Listener rule | HTTP → HTTPS redirect |
 | SSL 憑證 | `azurerm_key_vault_certificate` 或 App Gateway managed cert |
 
 ---
 
-### Phase 6 — 監控
+### Phase 6 — Monitoring
 
 | Terraform 資源 | 說明 |
 |----------------|------|
@@ -190,7 +193,7 @@ App Service (Docker container: FastAPI + uvicorn)
 
 ---
 
-## Terraform 模組規劃
+## Terraform
 
 ```
 .
@@ -216,7 +219,7 @@ App Service (Docker container: FastAPI + uvicorn)
 
 ---
 
-## 環境變數與 Secrets 清單
+## Environment variables and Secrets
 
 ### App Service 設定（非敏感，直接寫入）
 
