@@ -27,6 +27,9 @@ resource "azurerm_subnet" "db" {
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefixes     = [var.db_subnet_cidr]
 
+  # PostgreSQL Flexible Server 加入 VNet 時 Azure 會自動加上此 endpoint（備份用）
+  service_endpoints = ["Microsoft.Storage"]
+
   delegation {
     name = "db-delegation"
     service_delegation {
