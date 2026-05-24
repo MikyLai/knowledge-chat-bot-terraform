@@ -4,11 +4,12 @@
 
 1. [專案概述](#專案概述)
 2. [已確認使用的服務](#已確認使用的服務)
-3. [缺少的關鍵資源](#缺少的關鍵資源)
-4. [架構圖](#架構圖)
-5. [Terraform 模組規劃](#terraform-模組規劃)
-6. [環境變數與 Secrets 清單](#環境變數與-secrets-清單)
-7. [待辦事項](#待辦事項)
+3. [架構圖](#架構圖)
+4. [Terraform 資源清單](#terraform-資源清單依-phase)
+5. [Terraform 模組規劃](#terraform)
+6. [環境變數與 Secrets 清單](#environment-variables-and-secrets)
+7. [Resource Group 設計決策](#resource-group-設計決策)
+8. [TODO](#todo)
 
 ---
 
