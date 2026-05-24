@@ -32,20 +32,7 @@
 
 ### 必要資源
 
-#### 1. Azure Container Registry (ACR)
-
-- **原因**：`Dockerfile` 已寫好，需要一個 registry 推送 image，App Service 才能 pull。
-- **App Service 相依設定**：
-  ```
-  DOCKER_REGISTRY_SERVER_URL  = https://<acr-name>.azurecr.io
-  DOCKER_REGISTRY_SERVER_USERNAME = <acr-admin-or-mi>
-  DOCKER_REGISTRY_SERVER_PASSWORD = <acr-password-or-mi>
-  ```
-- **建議**：搭配 Managed Identity 讓 App Service 直接 pull，不需明文密碼。
-
----
-
-#### 2. Azure Database for PostgreSQL Flexible Server（或 Azure SQL）
+#### 1. Azure Database for PostgreSQL Flexible Server（或 Azure SQL）
 
 - **原因**：`database.py` 目前預設使用 SQLite，App Service 沒有持久磁碟，容器重啟資料即消失。
 - **需要的變更**：
@@ -76,16 +63,15 @@
 
 ---
 
-#### 4. Managed Identity（系統指派 System-assigned MI）
+#### 4. Managed Identity（User-assigned MI）
 
 - **原因**：讓 App Service 以身份驗證方式存取 Azure 資源，取代密碼/金鑰。
 - **需要授予的 RBAC 角色**：
 
   | 資源 | 角色 |
   |------|------|
-  | ACR | `AcrPull` |
   | Key Vault | `Key Vault Secrets User` |
-  | Blob Storage | `Storage Blob Data Contributor`（建議取代 connection string） |
+  | Blob Storage | `Storage Blob Data Contributor` |
 
 ---
 
@@ -99,11 +85,10 @@
 
 ---
 
-#### 6. Private Endpoints + NSG
+#### 6. PostgreSQL Private Endpoint
 
-- **Blob Storage Private Endpoint**：Storage 流量不走公網，走 VNet 內部。
 - **PostgreSQL Private Endpoint**：DB 連線不走公網，走 VNet 內部。
-- **NSG（Network Security Group）**：限制 VNet 子網路的進出規則，只允許必要的 port 與來源 IP。
+- **Blob Storage**：使用公網端點 + SAS URL 存取（`container_access_type = "private"`），不使用 Private Endpoint。
 
 ---
 
@@ -117,18 +102,17 @@ Application Gateway (SSL termination, WAF)
     │
     ▼
 App Service (Docker container: FastAPI + uvicorn)
-    │   ├── pull image ──────────────────▶ Azure Container Registry (ACR)
-    │   │                                   (via Managed Identity: AcrPull)
+    │   ├── pull image ──────────────────▶ GitHub Container Registry (GHCR)
     │   │
     │   ├── read secrets ────────────────▶ Azure Key Vault
     │   │                                   (via Managed Identity: KV Secrets User)
     │   │
     │   ├── store QR PNG ────────────────▶ Azure Blob Storage
-    │   │                                   (via Private Endpoint in VNet)
+    │   │                                   (public endpoint + SAS URL)
     │   │                                   (via Managed Identity: Blob Data Contributor)
     │   │
     │   └── read/write data ─────────────▶ Azure Database for PostgreSQL
-    │                                       (via Private Endpoint in VNet)
+    │                                       (via VNet Injection, private only)
     │
     └── logs / metrics ──────────────────▶ Application Insights
                                             └── Log Analytics Workspace
@@ -144,7 +128,7 @@ App Service (Docker container: FastAPI + uvicorn)
 |----------------|------|
 | `azurerm_resource_group` | 所有資源的容器 |
 | `azurerm_virtual_network` | VNet 主體 |
-| `azurerm_subnet` × 4 | `subnet-appservice`（VNet Integration）<br>`subnet-db`（PostgreSQL）<br>`subnet-storage`（Blob Storage）<br>`subnet-private-endpoint`（Private Endpoints） |
+| `azurerm_subnet` × 2 | `snet-appservice`（VNet Integration）<br>`snet-db`（PostgreSQL VNet Injection） |
 | `azurerm_network_security_group` | NSG + inbound/outbound rules |
 
 ---
@@ -156,7 +140,7 @@ App Service (Docker container: FastAPI + uvicorn)
 | `azurerm_user_assigned_identity` | App Service 使用的 User-assigned Managed Identity |
 | `azurerm_key_vault` | Key Vault 主體 |
 | `azurerm_key_vault_access_policy` × 2 | 一組給 MI（App Service 讀取），一組給 deployer（Terraform 寫入） |
-| `azurerm_key_vault_secret` × 3 | `DATABASE_URL`、`AZURE_STORAGE_CONNECTION_STRING`、`BASE_URL` |
+| `azurerm_key_vault_secret` × 2 | `DATABASE_URL`、`AZURE_STORAGE_ACCOUNT_NAME` |
 
 > **注意**：改用 User-assigned MI（`azurerm_user_assigned_identity`）而非 System-assigned，
 > 好處是 identity 生命週期與 App Service 解耦，可提前建立再授予 RBAC，避免循環依賴。
@@ -167,24 +151,22 @@ App Service (Docker container: FastAPI + uvicorn)
 
 | Terraform 資源 | 說明 |
 |----------------|------|
-| `azurerm_storage_account` | Blob Storage 主體 |
-| `azurerm_storage_container` | 名稱 `qr-codes`，`public_access = blob` |
+| `azurerm_storage_account` | Blob Storage 主體（直接在 root module，無獨立 module） |
+| `azurerm_storage_container` | 名稱 `qr-codes`，`container_access_type = "private"` |
+| `azurerm_role_assignment` | MI → Storage `Storage Blob Data Contributor` 角色 |
 | `azurerm_postgresql_flexible_server` | PostgreSQL Flexible Server |
 | `azurerm_postgresql_flexible_server_database` | 應用資料庫 |
-| `azurerm_private_endpoint` × 2 | Storage Private Endpoint + PostgreSQL Private Endpoint |
 
 ---
 
-### Phase 4 — Container Registry & App Service
+### Phase 4 — App Service
 
 | Terraform 資源 | 說明 |
 |----------------|------|
-| `azurerm_container_registry` | ACR，SKU: Basic（dev）/ Standard（prod） |
 | `azurerm_service_plan` | Linux，B1 以上 |
-| `azurerm_linux_web_app` | container mode，掛載 User-assigned MI |
-| `azurerm_role_assignment` | MI → ACR `AcrPull` 角色 |
+| `azurerm_linux_web_app` | container mode，直接從 GHCR pull image，掛載 User-assigned MI |
+| `azurerm_app_service_virtual_network_swift_connection` | App Service → `snet-appservice` VNet Integration |
 | App settings（Key Vault references） | `@Microsoft.KeyVault(SecretUri=...)` 格式注入 secrets |
-| VNet Integration | App Service → `subnet-appservice` |
 
 ---
 
@@ -211,50 +193,45 @@ App Service (Docker container: FastAPI + uvicorn)
 ## Terraform 模組規劃
 
 ```
-terraform/
-├── main.tf                  # provider、backend 設定
+.
+├── main.tf                  # provider、backend、resource group
 ├── variables.tf             # 全域變數
-├── outputs.tf               # 輸出值（ACR URL、App Service URL 等）
+├── outputs.tf               # 輸出值（App Service URL 等）
+├── app_service.tf           # App Service Plan、Web App、VNet Integration
+├── storage.tf               # Storage Account、Container、Role Assignment
+├── db.tf                    # PostgreSQL Flexible Server、DB
+├── locals.tf                # 共用 tags、computed values
 │
-├── modules/
-│   ├── networking/          # Phase 1：VNet、Subnet × 4、NSG
-│   ├── identity/            # Phase 2：User-assigned MI
-│   ├── key_vault/           # Phase 2：Key Vault、access policy × 2、secrets × 3
-│   ├── storage/             # Phase 3：Storage Account、Container、Private Endpoint
-│   ├── database/            # Phase 3：PostgreSQL Flexible Server、Private Endpoint
-│   ├── acr/                 # Phase 4：Azure Container Registry
-│   ├── app_service/         # Phase 4：App Service Plan、Web App、VNet Integration
-│   ├── app_gateway/         # Phase 5：Application Gateway、public IP、SSL
-│   └── monitoring/          # Phase 6：Application Insights、Log Analytics Workspace
+├── app.tfvars               # 跨環境共用變數（ghcr image 等）
+├── dev.tfvars               # dev 環境變數
+├── prod.tfvars              # prod 環境變數
 │
-└── envs/
-    ├── dev/
-    │   ├── main.tf
-    │   └── terraform.tfvars
-    └── prod/
-        ├── main.tf
-        └── terraform.tfvars
+├── backend/
+│   ├── dev.hcl              # dev remote state backend config
+│   └── prod.hcl             # prod remote state backend config
+│
+└── module/
+    └── network/             # Phase 1：VNet、Subnet × 2（appservice / db）
 ```
 
 ---
 
 ## 環境變數與 Secrets 清單
 
-### App Service 應用程式設定（非敏感）
+### App Service 設定（非敏感，直接寫入）
 
 | 變數名稱 | 範例值 | 說明 |
 |----------|--------|------|
-| `DOCKER_REGISTRY_SERVER_URL` | `https://<acr>.azurecr.io` | ACR 位址 |
+| `BASE_URL` | `https://app-qr-generator.azurewebsites.net` | API 對外 URL |
 | `WEBSITES_PORT` | `8000` | uvicorn 監聽 port |
-| `APPLICATIONINSIGHTS_CONNECTION_STRING` | `InstrumentationKey=...` | App Insights |
+| `APPLICATIONINSIGHTS_CONNECTION_STRING` | `InstrumentationKey=...` | App Insights（Phase 6） |
 
 ### App Service 透過 Key Vault Reference 取值（敏感）
 
 | 變數名稱 | Key Vault Secret | 說明 |
 |----------|-----------------|------|
 | `DATABASE_URL` | `DATABASE-URL` | PostgreSQL connection string |
-| `AZURE_STORAGE_CONNECTION_STRING` | `AZURE-STORAGE-CONNECTION-STRING` | Blob Storage（若未改用 MI） |
-| `BASE_URL` | `BASE-URL` | API 對外 URL |
+| `AZURE_STORAGE_ACCOUNT_NAME` | `AZURE-STORAGE-ACCOUNT-NAME` | Blob Storage 帳戶名稱（搭配 MI 存取） |
 
 ---
 
@@ -277,29 +254,40 @@ terraform/
 
 ---
 
-## 待辦事項
+## TODO
 
-### Phase 1 — 基礎網路
-- [ ] `modules/networking` — VNet、Subnet × 4（appservice / db / storage / private-endpoint）、NSG rules
+### Phase 1 — 基礎網路 ✅
+- [x] `module/network` — VNet、Subnet × 2（appservice / db）
 
 ### Phase 2 — 身份與秘密管理
-- [ ] `modules/identity` — User-assigned Managed Identity
-- [ ] `modules/key_vault` — Key Vault、access policy × 2（MI + deployer）、secrets × 3
+- [ ] User-assigned Managed Identity
+- [ ] Key Vault、access policy × 2（MI + deployer）、secrets × 2
 
-### Phase 3 — 儲存與資料庫
-- [ ] `modules/storage` — Storage Account、Container `qr-codes`、Private Endpoint
-- [ ] `modules/database` — PostgreSQL Flexible Server、DB、Private Endpoint
-- [ ] 修改應用程式 `database.py` — 支援 PostgreSQL（`DATABASE_URL` 環境變數）
+### Phase 3 — 儲存與資料庫 ✅
+- [x] `storage.tf` — Storage Account、Container `qr-codes`（private，無 Private Endpoint）
+- [x] `db.tf` — PostgreSQL Flexible Server、DB、VNet Injection
+- [x] 應用程式 `database.py` — 已支援 PostgreSQL（`DATABASE_URL` 環境變數）
 
-### Phase 4 — Container Registry & App Service
-- [ ] `modules/acr` — ACR（SKU: Basic/Standard）
-- [ ] `modules/app_service` — App Service Plan（Linux B1+）、Web App（container mode）、VNet Integration、MI 掛載、Key Vault references、`azurerm_role_assignment`（AcrPull）
+### Phase 4 — App Service ✅
+- [x] `app_service.tf` — App Service Plan（Linux B1）、Web App（GHCR image）、VNet Integration
+- [ ] 改用 User-assigned MI 掛載
+- [ ] Key Vault references 注入 secrets
+- [ ] `azurerm_role_assignment` — MI → Storage `Storage Blob Data Contributor`
 
 ### Phase 5 — 流量入口
-- [ ] `modules/app_gateway` — Public IP（static）、Application Gateway、HTTP→HTTPS redirect、SSL 憑證
+- [ ] Application Gateway — Public IP（static）、HTTP→HTTPS redirect、SSL 憑證
 
 ### Phase 6 — 監控
-- [ ] `modules/monitoring` — Log Analytics Workspace、Application Insights
+- [ ] Log Analytics Workspace、Application Insights
 
-### 其他
-- [ ] CI/CD pipeline — build image → push ACR → deploy App Service
+### 其他 ✅
+- [x] CI/CD pipeline — test → release 
+
+# TODO
+
+## Infrastructure
+
+- [ ] Add Azure Cache for Redis (`azurerm_redis_cache`) + connect to App Service via app settings
+- [ ] Move `db_password` to Azure Key Vault (`azurerm_key_vault_secret`) and have App Service read via Key Vault reference
+- [ ] Replace Storage Account SAS URL with IAM-based access (Managed Identity + Storage Blob Data Reader role assignment)
+- [ ] load test
