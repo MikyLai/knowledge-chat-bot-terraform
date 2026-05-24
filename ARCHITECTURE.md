@@ -3,8 +3,8 @@
 ## 目錄
 
 1. [專案概述](#專案概述)
-2. [已確認使用的服務](#已確認使用的服務)
-3. [架構圖](#架構圖)
+2. [架構圖](#架構圖)
+3. [已確認使用的服務](#已確認使用的服務)
 4. [Terraform 資源清單](#terraform-資源清單依-phase)
 5. [Terraform 模組規劃](#terraform)
 6. [環境變數與 Secrets 清單](#environment-variables-and-secrets)
@@ -17,6 +17,33 @@
 
 以 FastAPI + uvicorn 為後端，透過 Docker container 部署在 Azure App Service，
 提供 QR Code 生成 API，並將產生的 PNG 圖片存放於 Azure Blob Storage。
+
+---
+
+## 架構圖
+
+```
+Internet
+    │
+    ▼
+App Service (Docker container: FastAPI + uvicorn)
+    │   ├── pull image ──────────────────▶ GitHub Container Registry (GHCR)
+    │   │
+    │   ├── read secrets ────────────────▶ Azure Key Vault
+    │   │                                   (via Managed Identity: KV Secrets User)
+    │   │
+    │   ├── store QR PNG ────────────────▶ Azure Blob Storage
+    │   │                                   (public endpoint + SAS URL)
+    │   │                                   (via Managed Identity: Blob Data Contributor)
+    │   │
+    │   └── read/write data ─────────────▶ Azure Database for PostgreSQL
+    │                                       (via VNet Injection, private only)
+    │
+    └── logs / metrics ──────────────────▶ Application Insights
+                                            └── Log Analytics Workspace
+```
+
+> **Production**：可在前面加上 Application Gateway（WAF、HTTPS redirect、隱藏原始 URL）。
 
 ---
 
@@ -88,34 +115,6 @@
 - **用途**：FastAPI request log、錯誤追蹤（exception）、效能監控（latency、throughput）。
 - **整合方式**：在 App Service 設定 `APPLICATIONINSIGHTS_CONNECTION_STRING`，
   搭配 `opencensus-ext-azure` 或 `azure-monitor-opentelemetry` SDK。
-
----
-
-## 架構圖
-
-```
-Internet
-    │
-    ▼
-Application Gateway (SSL termination, WAF)
-    │
-    ▼
-App Service (Docker container: FastAPI + uvicorn)
-    │   ├── pull image ──────────────────▶ GitHub Container Registry (GHCR)
-    │   │
-    │   ├── read secrets ────────────────▶ Azure Key Vault
-    │   │                                   (via Managed Identity: KV Secrets User)
-    │   │
-    │   ├── store QR PNG ────────────────▶ Azure Blob Storage
-    │   │                                   (public endpoint + SAS URL)
-    │   │                                   (via Managed Identity: Blob Data Contributor)
-    │   │
-    │   └── read/write data ─────────────▶ Azure Database for PostgreSQL
-    │                                       (via VNet Injection, private only)
-    │
-    └── logs / metrics ──────────────────▶ Application Insights
-                                            └── Log Analytics Workspace
-```
 
 ---
 
