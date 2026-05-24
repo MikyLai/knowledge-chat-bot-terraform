@@ -26,14 +26,13 @@
 |------|------|------------|
 | **Azure App Service** | 執行 Docker container（FastAPI + uvicorn） | `Dockerfile` |
 | **Azure Blob Storage** | 儲存 QR Code PNG 圖片 | `blob_storage.py` |
-| **Azure Virtual Network (VNet)** | 網路隔離，讓 App Service、DB、Storage 在私有網路內互通 | 架構設計 |
-| **Azure Load Balancer / Application Gateway** | 流量入口、SSL termination、WAF（可選） | 架構設計 |
+| **Azure Virtual Network (VNet)** | 網路隔離，讓 App Service、DB 在私有網路內互通 | 架構設計 |
 
 ---
 
 ### 必要資源
 
-#### 1. Azure Database for PostgreSQL Flexible Server（或 Azure SQL）
+#### 1. Azure Database for PostgreSQL Flexible Server
 
 - **原因**：`database.py` 目前預設使用 SQLite，App Service 沒有持久磁碟，容器重啟資料即消失。
 - **需要的變更**：
@@ -41,8 +40,15 @@
     ```
     postgresql+asyncpg://<user>:<password>@<host>:5432/<dbname>?sslmode=require
     ```
-  - 建議透過 Key Vault reference 注入，不明文寫在 App Service 設定中。
-- **網路**：掛載 Private Endpoint 到 VNet，不對公網開放。
+  - 透過 Key Vault reference 注入，不明文寫在 App Service 設定中。
+- **網路**：透過 VNet Injection 部署在私有子網路，不對公網開放（見 #### 2）。
+
+---
+
+#### 2. PostgreSQL Private Endpoint
+
+- **PostgreSQL Private Endpoint**：DB 連線不走公網，走 VNet 內部（已透過 VNet Injection 實現）。
+- **Blob Storage**：使用公網端點 + SAS URL 存取（`container_access_type = "private"`），不使用 Private Endpoint。
 
 ---
 
@@ -53,9 +59,8 @@
 
   | Secret 名稱 | 內容 |
   |-------------|------|
-  | `AZURE-STORAGE-CONNECTION-STRING` | Blob Storage 連線字串（或改用 MI） |
-  | `DATABASE-URL` | PostgreSQL connection string |
-  | `BASE-URL` | API 對外的 base URL |
+  | `DATABASE-URL` | PostgreSQL connection string（含 db_password） |
+
 
 - **App Service 取值方式**（Key Vault reference）：
   ```
@@ -83,13 +88,6 @@
 - **用途**：FastAPI request log、錯誤追蹤（exception）、效能監控（latency、throughput）。
 - **整合方式**：在 App Service 設定 `APPLICATIONINSIGHTS_CONNECTION_STRING`，
   搭配 `opencensus-ext-azure` 或 `azure-monitor-opentelemetry` SDK。
-
----
-
-#### 6. PostgreSQL Private Endpoint
-
-- **PostgreSQL Private Endpoint**：DB 連線不走公網，走 VNet 內部。
-- **Blob Storage**：使用公網端點 + SAS URL 存取（`container_access_type = "private"`），不使用 Private Endpoint。
 
 ---
 
@@ -141,7 +139,7 @@ App Service (Docker container: FastAPI + uvicorn)
 | `azurerm_user_assigned_identity` | App Service 使用的 User-assigned Managed Identity |
 | `azurerm_key_vault` | Key Vault 主體 |
 | `azurerm_key_vault_access_policy` × 2 | 一組給 MI（App Service 讀取），一組給 deployer（Terraform 寫入） |
-| `azurerm_key_vault_secret` × 2 | `DATABASE_URL`、`AZURE_STORAGE_ACCOUNT_NAME` |
+| `azurerm_key_vault_secret` × 1 | `DATABASE_URL` |
 
 > **注意**：改用 User-assigned MI（`azurerm_user_assigned_identity`）而非 System-assigned，
 > 好處是 identity 生命週期與 App Service 解耦，可提前建立再授予 RBAC，避免循環依賴。
@@ -167,7 +165,7 @@ App Service (Docker container: FastAPI + uvicorn)
 | `azurerm_linux_web_app` | container mode，直接從 GHCR pull image | ✅ |
 | `azurerm_app_service_virtual_network_swift_connection` | App Service → `snet-appservice` VNet Integration | ✅ |
 | `azurerm_role_assignment` | MI → Storage `Storage Blob Data Contributor` | ⏳ Phase 2 後 |
-| App settings（Key Vault references） | `DATABASE_URL`、`AZURE_STORAGE_ACCOUNT_NAME` 透過 KV 注入 | ⏳ Phase 2 後 |
+| App settings（Key Vault references） | `DATABASE_URL` 透過 KV 注入；`AZURE_STORAGE_ACCOUNT_NAME` 直接寫入 | ⏳ Phase 2 後 |
 
 ---
 
@@ -235,7 +233,8 @@ App Service (Docker container: FastAPI + uvicorn)
 | 變數名稱 | Key Vault Secret | 說明 |
 |----------|-----------------|------|
 | `DATABASE_URL` | `DATABASE-URL` | PostgreSQL connection string |
-| `AZURE_STORAGE_ACCOUNT_NAME` | `AZURE-STORAGE-ACCOUNT-NAME` | Blob Storage 帳戶名稱（搭配 MI 存取） |
+
+> `AZURE_STORAGE_ACCOUNT_NAME` 直接寫入 App Settings（非敏感，MI 憑 identity 存取 Storage，不需要密碼）。
 
 ---
 
