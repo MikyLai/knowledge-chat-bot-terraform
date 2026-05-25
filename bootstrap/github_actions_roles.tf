@@ -49,13 +49,13 @@ resource "azuread_application_federated_identity_credential" "github_actions" {
 # read  → Reader
 # apply → Contributor
 # -----------------------------------------------------------------------------
-data "azurerm_resource_group" "app" {
-  name = var.app_resource_group_name
-}
+# data "azurerm_resource_group" "app" {
+#   name = var.app_resource_group_name
+# }
 
 resource "azurerm_role_assignment" "github_actions" {
   for_each             = local.github_env_roles
-  scope                = data.azurerm_resource_group.app.id
+  scope                = azurerm_resource_group.app.id
   role_definition_name = each.value.role == "read" ? "Reader" : "Contributor"
   principal_id         = azuread_service_principal.github_actions[each.key].object_id
 }
@@ -89,7 +89,7 @@ resource "azurerm_role_assignment" "github_actions_tfstate" {
 # 用自訂 role 補上這個 action 給所有 SP（read + apply 都需要 refresh state）
 resource "azurerm_role_definition" "web_config_reader" {
   name        = "WebConfigReader-${var.app_resource_group_name}"
-  scope       = data.azurerm_resource_group.app.id
+  scope       = azurerm_resource_group.app.id
   description = "Allow reading App Service config/list actions for Terraform plan"
 
   permissions {
@@ -98,12 +98,12 @@ resource "azurerm_role_definition" "web_config_reader" {
     ]
   }
 
-  assignable_scopes = [data.azurerm_resource_group.app.id]
+  assignable_scopes = [azurerm_resource_group.app.id]
 }
 
 resource "azurerm_role_assignment" "github_actions_web_config" {
   for_each           = { for k, v in local.github_env_roles : k => v if v.role == "read" }
-  scope              = data.azurerm_resource_group.app.id
+  scope              = azurerm_resource_group.app.id
   role_definition_id = azurerm_role_definition.web_config_reader.role_definition_resource_id
   principal_id       = azuread_service_principal.github_actions[each.key].object_id
 }
