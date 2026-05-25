@@ -10,6 +10,9 @@ resource "azurerm_storage_account" "app" {
   # QR images served via SAS URLs; public network access required so browsers can fetch images
   allow_nested_items_to_be_public = false
 
+  # 允許 shared key 存取（connection string）；待 Managed Identity 完成後改為 false
+  shared_access_key_enabled = true
+
   # 強制 HTTPS
   https_traffic_only_enabled = true
 
