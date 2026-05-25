@@ -26,7 +26,8 @@ resource "azurerm_linux_web_app" "app" {
   https_only          = true
 
   site_config {
-    always_on = false
+    always_on         = false
+    health_check_path = "/health"
 
     application_stack {
       docker_image_name        = "${var.ghcr_image.name}:${var.ghcr_image.version}"
@@ -39,7 +40,7 @@ resource "azurerm_linux_web_app" "app" {
   app_settings = {
     AZURE_BLOB_CONTAINER= azurerm_storage_container.app.name
     AZURE_STORAGE_CONNECTION_STRING = azurerm_storage_account.app.primary_connection_string
-    BASE_URL = "https://${var.app_name}.azurewebsites.net"
+    BASE_URL = "https://${var.app_name}-${var.environment}.azurewebsites.net"
     BLOB_PUBLIC_HOST= "${azurerm_storage_account.app.name}.blob.core.windows.net"
     # db.fqdn resolves to "app-qr-generator-dev.postgres.database.azure.com" (no .private. in the hostname).
     # From inside the VNet, Azure split-horizon DNS intercepts this query and follows a CNAME chain:
