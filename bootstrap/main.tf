@@ -51,7 +51,29 @@ provider "github" {
 
 
 
+resource "random_string" "suffix" {
+  length  = 6
+  special = false
+  upper   = false
+}
+
 data "azurerm_subscription" "current" {
+}
+
+resource "azurerm_resource_group" "app" {
+  name     = var.app_resource_group_name
+  location = var.location
+
+  tags = local.tags
+}
+
+locals {
+  tags = {
+    environment = var.environment
+    managedby   = "terraform"
+  }
+  resource_suffix = "${var.environment}-${random_string.suffix.result}"
+  subscription_id = data.azurerm_subscription.current.subscription_id
 }
 
 
