@@ -1,7 +1,7 @@
 resource "azurerm_storage_account" "app" {
   name                     = "qrgenerator${replace(local.resource_suffix, "-", "")}"
-  resource_group_name      = azurerm_resource_group.app.name
-  location                 = azurerm_resource_group.app.location
+  resource_group_name      = var.app_resource_group_name
+  location                 = var.location
   account_tier             = "Standard"
   account_replication_type = "LRS"
   account_kind             = "StorageV2" # default 值是 StorageV2，這裡明確指定以防未來變更預設

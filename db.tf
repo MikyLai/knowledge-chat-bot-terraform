@@ -1,8 +1,8 @@
 # create DB Instance
 resource "azurerm_postgresql_flexible_server" "db" {
   name                   = "${var.app_name}-${var.environment}"
-  resource_group_name    = azurerm_resource_group.app.name
-  location               = azurerm_resource_group.app.location
+  resource_group_name    = var.app_resource_group_name
+  location               = var.location
 
   administrator_login    = "postgresadmin"
   administrator_password = var.db_password
@@ -45,14 +45,14 @@ resource "azurerm_postgresql_flexible_server_configuration" "log_statement" {
 ##-----------------------------------------------------------------------------
 resource "azurerm_private_dns_zone" "db" {
   name                = "${var.app_name}-${var.environment}.private.postgres.database.azure.com"
-  resource_group_name = azurerm_resource_group.app.name
+  resource_group_name = var.app_resource_group_name
 
   tags = local.tags
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "db" {
   name                  = "dns-link-db-${var.environment}"
-  resource_group_name   = azurerm_resource_group.app.name
+  resource_group_name   = var.app_resource_group_name
   private_dns_zone_name = azurerm_private_dns_zone.db.name
   virtual_network_id    = module.network.vnet_id
 

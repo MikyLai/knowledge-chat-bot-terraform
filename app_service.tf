@@ -5,8 +5,8 @@
 
 resource "azurerm_service_plan" "app" {
   name                = "asp-${var.app_name}${var.environment}"
-  resource_group_name = azurerm_resource_group.app.name
-  location            = azurerm_resource_group.app.location
+  resource_group_name = var.app_resource_group_name
+  location            = var.location
   os_type             = "Linux"
   sku_name            = "B1"
 
@@ -20,8 +20,8 @@ resource "azurerm_service_plan" "app" {
 
 resource "azurerm_linux_web_app" "app" {
   name                = "${var.app_name}-${var.environment}"
-  resource_group_name = azurerm_resource_group.app.name
-  location            = azurerm_resource_group.app.location
+  resource_group_name = var.app_resource_group_name
+  location            = var.location
   service_plan_id     = azurerm_service_plan.app.id
   https_only          = true
 
