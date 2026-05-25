@@ -1,4 +1,4 @@
 ghcr_image = {
-  name    = "mikylai/qr-code-generator"
-  version = "v0.9.0-10"
+name    = "mikylai/qr-code-generator"
+version = "v0.10.0-11"
 }
