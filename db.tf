@@ -2,7 +2,7 @@
 resource "azurerm_postgresql_flexible_server" "db" {
   name                   = "${var.app_name}-${var.environment}"
   resource_group_name    = var.app_resource_group_name
-  location               = azurerm_resource_group.app.location
+  location               = var.location
 
   administrator_login    = "postgresadmin"
   administrator_password = var.db_password
