@@ -72,8 +72,6 @@ locals {
     environment = var.environment
     managedby   = "terraform"
   }
-  resource_suffix = "${var.environment}-${random_string.suffix.result}"
-  subscription_id = data.azurerm_subscription.current.subscription_id
 }
 
 

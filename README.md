@@ -24,8 +24,6 @@
 > az account show <------ check login user
 > terraform init 
 > terraform plan -var-file dev.tfvars 
-> terraformye apply  -var-file dev.tfvars 
-
-
+> terraformye apply  -var-file dev.tfvars
 
 
