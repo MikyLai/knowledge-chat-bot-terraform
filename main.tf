@@ -33,7 +33,7 @@ module "network" {
   enable_network_watcher  = true
   environment             = var.environment
   location                = var.location
-  resource_group_name     = azurerm_resource_group.app.name
+  resource_group_name     = var.app_resource_group_name
   tags                    = local.tags
 }
 
