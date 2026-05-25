@@ -48,11 +48,11 @@ jobs:
           # jq update version → write back to tfvars
           IMAGE_NAME=$(echo "$TFVARS_JSON" | jq -r '.ghcr_image.name')
           cat > app.tfvars <<EOF
-ghcr_image = {
-  name    = "${IMAGE_NAME}"
-  version = "${LATEST}"
-}
-EOF
+          ghcr_image = {
+          name    = "${IMAGE_NAME}"
+          version = "${LATEST}"
+          }
+          EOF
           echo "needs-update=true"  >> "$GITHUB_OUTPUT"
           echo "current=${CURRENT}" >> "$GITHUB_OUTPUT"
 
