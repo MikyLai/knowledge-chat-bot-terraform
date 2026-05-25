@@ -1,0 +1,72 @@
+name: Auto Update Image Version
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check-and-update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Get latest GHCR version
+        id: latest
+        run: |
+          LATEST=$(gh api /users/mikylai/packages/container/qr-code-generator/versions \
+            --jq '[.[] | select(.metadata.container.tags | map(select(startswith("v"))) | length > 0)] | sort_by(.id) | last | .metadata.container.tags[] | select(startswith("v"))')
+          echo "version=${LATEST}" >> "$GITHUB_OUTPUT"
+          echo "Latest version: ${LATEST}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compare and update app.tfvars
+        id: update
+        env:
+          LATEST: ${{ steps.latest.outputs.version }}
+        run: |
+          # tfvars → JSON (in memory)
+          TFVARS_JSON=$(jq -n \
+            --arg name    "$(grep -oP 'name\s*=\s*"\K[^"]+' app.tfvars)" \
+            --arg version "$(grep -oP 'version\s*=\s*"\K[^"]+' app.tfvars)" \
+            '{ghcr_image: {name: $name, version: $version}}')
+
+          CURRENT=$(echo "$TFVARS_JSON" | jq -r '.ghcr_image.version')
+          echo "Current version: ${CURRENT}"
+          echo "Latest  version: ${LATEST}"
+
+          if [[ "${LATEST}" == "${CURRENT}" ]]; then
+            echo "Already up to date."
+            echo "needs-update=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # jq update version → write back to tfvars
+          IMAGE_NAME=$(echo "$TFVARS_JSON" | jq -r '.ghcr_image.name')
+          cat > app.tfvars <<EOF
+ghcr_image = {
+  name    = "${IMAGE_NAME}"
+  version = "${LATEST}"
+}
+EOF
+          echo "needs-update=true"  >> "$GITHUB_OUTPUT"
+          echo "current=${CURRENT}" >> "$GITHUB_OUTPUT"
+
+      - name: Create Pull Request
+        if: steps.update.outputs.needs-update == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update image version to ${{ steps.latest.outputs.version }}"
+          branch: auto-update/image-${{ steps.latest.outputs.version }}
+          delete-branch: true
+          title: "chore: update image version to ${{ steps.latest.outputs.version }}"
+          body: |
+            Auto-detected new image version on GHCR.
+
+            - **Previous version**: `${{ steps.update.outputs.current }}`
+            - **New version**: `${{ steps.latest.outputs.version }}`
