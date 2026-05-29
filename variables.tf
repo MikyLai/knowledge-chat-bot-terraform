@@ -1,23 +1,17 @@
 variable "app_name" {
   type        = string
   description = "App Service Web App name (must be globally unique)"
-  default     = "app-qr-generator"
+  default     = "chat-bot"
 }
-
-# variable "app_service_sku" {
-#   type        = string
-#   description = "App Service Plan SKU"
-#   default     = "B1"
-# }
 
 variable "app_resource_group_name" {
   type        = string
   description = "Resource group name for App Service resources"
 }
 
-variable "db_password" {
+variable "OPENAI_API_KEY" {
     type        = string
-    description = "Password for PostgreSQL admin user"
+    description = "API key for OpenAI"
     sensitive   = true
 }
 
@@ -46,17 +40,6 @@ variable "location" {
   default     = "eastasia"
 }
 
-variable "postgres_database_name" {
-    type        = string
-    description = "Name of the PostgreSQL database"
-    default     = "qr_code_db"
-}
-
-variable "project" {
-  type        = string
-  description = "Project name for tagging"
-  default     = "qr-code-generator"
-}
 
 variable "subscription_id" {
   type        = string
