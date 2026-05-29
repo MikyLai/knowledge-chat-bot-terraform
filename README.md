@@ -19,11 +19,12 @@
 
 ## Bootstrapping Managed Identity for Github CICD
 > cd bootstrap/  >　
-modify `resource_group_name` in `bootstrap/dev.tfvars` `tfstate_storage_account_name`,`github_repository_name` in `bootstrap/variables.tf`
+Replace the resource_group_name and storage_account_name values in backend block with the actual output from remote-state.
+Replace `tfstate_storage_account_name`,`github_repository_name`, `tfstate_resource_group_name` in `bootstrap/variables.tf`
 
 
 > terraform init 
 > terraform plan -var-file dev.tfvars 
-> terraformye apply  -var-file dev.tfvars
+> terraform apply  -var-file dev.tfvars
 
 

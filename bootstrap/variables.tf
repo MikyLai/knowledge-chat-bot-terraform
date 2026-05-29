@@ -9,12 +9,14 @@ variable "tenant_id" {
   default     = "e611142c-7e66-410f-9240-bdbfbab3a8d0"
 }
 
+# output resource_group_name from remote-state
 variable "tfstate_resource_group_name" {
   type        = string
   description = "Resource group name for Terraform state storage"
   default     = "rg-tfstate-chat-bot-dev"
 }
 
+# output storage_account_name from remote-state
 variable "tfstate_storage_account_name" {
   type        = string
   description = "Storage account name for Terraform state"
