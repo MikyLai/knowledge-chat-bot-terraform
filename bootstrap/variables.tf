@@ -20,7 +20,7 @@ variable "tfstate_resource_group_name" {
 variable "tfstate_storage_account_name" {
   type        = string
   description = "Storage account name for Terraform state"
-  default     = "tfstatebj78mn"
+  default     = "tfstategcclr1"
 }
 
 variable "environment" {
@@ -62,7 +62,7 @@ EOF
 variable "location" {
   type        = string
   description = "Azure region for all resources"
-  default     = "eastasia"
+  default     = "centralus"
 }
 
 variable "subscription_id" {

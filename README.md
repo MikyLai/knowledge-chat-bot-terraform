@@ -8,7 +8,7 @@
 - [jq](https://jqlang.org/download/)
 
 ## create terraform remote backend storage
-
+* change your `location` to your region
 * create storage to keep remove-state
 > az login <------use  Admin permission 
 > az account show <------ check login user
