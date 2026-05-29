@@ -35,7 +35,7 @@ resource "random_string" "suffix" {
 }
 
 resource "azurerm_storage_account" "tfstate" {
-  name                     = "stqrtfstate-${random_string.suffix.result}"
+  name                     = "stqrtfstate${random_string.suffix.result}"
   resource_group_name      = azurerm_resource_group.tfstate.name
   location                 = azurerm_resource_group.tfstate.location
   account_tier             = "Standard"
