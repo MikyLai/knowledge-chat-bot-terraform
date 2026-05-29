@@ -12,7 +12,7 @@
 * create storage to keep remove-state
 > az login <------use  Admin permission 
 > az account show <------ check login user
-> cd remote-state >　change `resource_group_name` in `remove-state/dev.tfvars` 
+> cd remote-state >　change `resource_group_name` in `remove-state/dev.tfvars`; `app_name` in variables.tf
 > terraform init 
 > terraform plan -var-file dev.tfvars 
 > terraform apply -var-file dev.tfvars
@@ -21,7 +21,6 @@
 > cd bootstrap/  >　
 Replace the resource_group_name and storage_account_name values in backend block with the actual output from remote-state.
 Replace `tfstate_storage_account_name`,`github_repository_name`, `tfstate_resource_group_name` in `bootstrap/variables.tf`
-
 
 > terraform init 
 > terraform plan -var-file dev.tfvars 

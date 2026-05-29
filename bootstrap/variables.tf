@@ -20,7 +20,7 @@ variable "tfstate_resource_group_name" {
 variable "tfstate_storage_account_name" {
   type        = string
   description = "Storage account name for Terraform state"
-  default     = "stqrtfstatebj78mn"
+  default     = "tfstatebj78mn"
 }
 
 variable "environment" {
