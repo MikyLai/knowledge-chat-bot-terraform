@@ -53,13 +53,3 @@ resource "azurerm_linux_web_app" "app" {
     ]
   }
 }
-
-##-----------------------------------------------------------------------------
-## VNet Integration: App Service → app_service subnet
-## Routes App Service outbound traffic through the VNet,
-## enabling it to reach private resources like DB in the same VNet
-##-----------------------------------------------------------------------------
-resource "azurerm_app_service_virtual_network_swift_connection" "app" {
-  app_service_id = azurerm_linux_web_app.app.id
-  subnet_id      = module.network.app_service_subnet_id
-}
