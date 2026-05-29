@@ -12,13 +12,13 @@ variable "tenant_id" {
 variable "tfstate_resource_group_name" {
   type        = string
   description = "Resource group name for Terraform state storage"
-  default     = "rg-tfstate-qr"
+  default     = "rg-tfstate-chat-bot-dev"
 }
 
 variable "tfstate_storage_account_name" {
   type        = string
   description = "Storage account name for Terraform state"
-  default     = "stqrtfstate038e436b"
+  default     = "stqrtfstatebj78mn"
 }
 
 variable "environment" {
@@ -29,7 +29,7 @@ variable "environment" {
 variable "github_repository_name" {
   type        = string
   description = "Repository name for the App Service Web App (must be globally unique)"
-  default     = "qr-code-generator-terraform"
+  default     = "knowledge-chat-bot-terraform"
 }
 
 variable "github_environments" {
