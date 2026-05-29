@@ -15,6 +15,5 @@ locals {
     environment = var.environment
     managedby   = "terraform"
   }
-  resource_suffix = "${var.environment}-${random_string.suffix.result}"
 }
 
