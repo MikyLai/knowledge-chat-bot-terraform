@@ -37,7 +37,7 @@ variable "ghcr_image" {
 variable "location" {
   type        = string
   description = "Azure region"
-  default     = "eastasia"
+  default     = "centralus"
 }
 
 
