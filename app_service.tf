@@ -19,7 +19,7 @@ resource "azurerm_service_plan" "app" {
 # }
 
 resource "azurerm_linux_web_app" "app" {
-  name                = "${var.app_name}-${var.environment}"
+  name                = "${var.app_name}-${var.environment}-${random_string.suffix.result}"
   resource_group_name = var.app_resource_group_name
   location            = var.location
   service_plan_id     = azurerm_service_plan.app.id
