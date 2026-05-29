@@ -9,7 +9,7 @@ variable "app_resource_group_name" {
   description = "Resource group name for App Service resources"
 }
 
-variable "OPENAI_API_KEY" {
+variable "openai_api_key" {
     type        = string
     description = "API key for OpenAI"
     sensitive   = true

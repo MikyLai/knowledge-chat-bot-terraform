@@ -38,7 +38,7 @@ resource "azurerm_linux_web_app" "app" {
   }
 
   app_settings = {
-    OPENAI_API_KEY             = var.OPENAI_API_KEY
+    OPENAI_API_KEY             = var.openai_api_key
     WEBSITES_PORT                  = tostring(var.container_port)
   }
 
@@ -52,14 +52,4 @@ resource "azurerm_linux_web_app" "app" {
       virtual_network_subnet_id,
     ]
   }
-}
-
-##-----------------------------------------------------------------------------
-## VNet Integration: App Service → app_service subnet
-## Routes App Service outbound traffic through the VNet,
-## enabling it to reach private resources like DB in the same VNet
-##-----------------------------------------------------------------------------
-resource "azurerm_app_service_virtual_network_swift_connection" "app" {
-  app_service_id = azurerm_linux_web_app.app.id
-  subnet_id      = module.network.app_service_subnet_id
 }

@@ -22,6 +22,14 @@ provider "azurerm" {
   subscription_id = var.subscription_id
 }
 
+locals {
+  tags = {
+    app     = var.app_name
+    environment = var.environment
+    managedby   = "terraform"
+  }
+}
+
 resource "azurerm_resource_group" "tfstate" {
   name     = var.resource_group_name
   location = "eastasia"
@@ -35,7 +43,7 @@ resource "random_string" "suffix" {
 }
 
 resource "azurerm_storage_account" "tfstate" {
-  name                     = "stqrtfstate${random_string.suffix.result}"
+  name                     = "tfstate${random_string.suffix.result}"
   resource_group_name      = azurerm_resource_group.tfstate.name
   location                 = azurerm_resource_group.tfstate.location
   account_tier             = "Standard"
@@ -53,11 +61,7 @@ resource "azurerm_storage_account" "tfstate" {
     versioning_enabled = true
   }
 
-  tags = {
-    project     = "qr-code-generator"
-    environment = "shared"
-    managedby   = "terraform"
-  }
+  tags = local.tags
 }
 
 resource "azurerm_storage_container" "tfstate" {

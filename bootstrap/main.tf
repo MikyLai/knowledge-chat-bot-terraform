@@ -31,7 +31,7 @@ terraform {
 
   backend "azurerm" {
     resource_group_name  = "rg-tfstate-chat-bot-dev" 
-    storage_account_name = "stqrtfstatebj78mn"
+    storage_account_name = "tfstatebj78mn"
     container_name       = "tfstate"
     key                  = "bootstrapping.tfstate"
   }
