@@ -4,7 +4,7 @@
 # -----------------------------------------------------------------------------
 
 resource "azurerm_service_plan" "app" {
-  name                = "asp-${var.app_name}${var.environment}"
+  name                = "asp-${var.app_name}-${var.environment}"
   resource_group_name = var.app_resource_group_name
   location            = var.location
   os_type             = "Linux"
