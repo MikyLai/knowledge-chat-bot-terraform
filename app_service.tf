@@ -53,3 +53,15 @@ resource "azurerm_linux_web_app" "app" {
     ]
   }
 }
+
+# -----------------------------------------------------------------------------
+# Application Insights
+# -----------------------------------------------------------------------------
+resource "azurerm_application_insights" "app" {
+  name                = "appi-${var.app_name}-${var.environment}"
+  resource_group_name = var.app_resource_group_name
+  location            = var.location
+  application_type    = "web"
+
+  tags = local.tags
+}
