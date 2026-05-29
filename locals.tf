@@ -11,7 +11,7 @@ resource "random_string" "suffix" {
 
 locals {
   tags = {
-    project     = var.project
+    app     = var.app_name
     environment = var.environment
     managedby   = "terraform"
   }

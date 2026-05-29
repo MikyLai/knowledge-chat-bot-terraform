@@ -53,11 +53,7 @@ resource "azurerm_storage_account" "tfstate" {
     versioning_enabled = true
   }
 
-  tags = {
-    project     = "qr-code-generator"
-    environment = "shared"
-    managedby   = "terraform"
-  }
+  tags = local.tags
 }
 
 resource "azurerm_storage_container" "tfstate" {
