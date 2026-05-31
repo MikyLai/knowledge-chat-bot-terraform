@@ -37,9 +37,14 @@ resource "azurerm_linux_web_app" "app" {
     }
   }
 
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.app.id]
+  }
+
   app_settings = {
-    OPENAI_API_KEY             = var.openai_api_key
-    WEBSITES_PORT                  = tostring(var.container_port)
+    OPENAI_API_KEY = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.openai_api_key.versionless_id})"
+    WEBSITES_PORT  = tostring(var.container_port)
   }
 
   tags = local.tags

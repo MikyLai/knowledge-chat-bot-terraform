@@ -9,11 +9,11 @@ variable "app_resource_group_name" {
   description = "Resource group name for App Service resources"
 }
 
-variable "openai_api_key" {
-    type        = string
-    description = "API key for OpenAI"
-    sensitive   = true
-}
+# variable "openai_api_key" {
+#     type        = string
+#     description = "API key for OpenAI"
+#     sensitive   = true
+# }
 
 variable "container_port" {
   type        = number
